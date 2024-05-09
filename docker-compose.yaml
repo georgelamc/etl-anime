@@ -1,12 +1,17 @@
 services:
-  etl-anime-database:
+  etl_anime_database:
     image: postgres:latest
     environment:
       POSTGRES_DB: database
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-  etl-anime:
+
+  etl_anime:
     build: .
-    image: etl-anime
+    image: etl_anime
+    environment:
+      DATABASE_HOST: host.docker.internal
+      DATBASE_USER: user
+      DATABASE_PASSWORD: password
     depends_on:
-      - etl-anime-database
+      - etl_anime_database
