@@ -5,6 +5,8 @@ services:
       POSTGRES_DB: database
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
+    volumes:
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   etl_script:
     build: .

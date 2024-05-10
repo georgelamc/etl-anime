@@ -1,51 +1,46 @@
 import psycopg2
 import requests
 import subprocess
+import sys
 import time
 
+from datetime import datetime
+
 API_URL = 'https://kitsu.io/api/edge'
+DATE_FORMAT = '%Y-%m-%d'
+DATABASE_CONFIG = {
+    'host': 'database',
+    'port': '5432',
+    'dbname': 'database',
+    'user': 'user',
+    'password': 'password'
+}
 
 
 def get_connection():
     connection = psycopg2.connect(
-        host='database',
-        port='5432',
-        dbname='database',
-        user='user',
-        password='password'
+        host=DATABASE_CONFIG['host'],
+        port=DATABASE_CONFIG['port'],
+        dbname=DATABASE_CONFIG['dbname'],
+        user=DATABASE_CONFIG['user'],
+        password=DATABASE_CONFIG['password']
     )
     return connection
 
 
-def wait_for_database():
+def connect_to_database(database, max_retries, sleep_time):
     tries = 0
-    max_retries = 5
-    sleep_time = 5
     while tries < max_retries:
         try:
-            result = subprocess.run(['pg_isready', '-h', 'database'])
+            result = subprocess.run(['pg_isready', '-h', database], capture_output=True, check=True)
             if result.returncode == 0:
-                return
+                return True
         except Exception as e:
             print(f'Error: {e}')
+            print('Trying again...')
         tries += 1
         time.sleep(sleep_time)
-
-
-def create_tables():
-    statement = (
-        'create table anime('
-        'id serial primary key, '
-        'title varchar(255), '
-        'startDate date, '
-        'endDate date, '
-        'episodes integer, '
-        'rating decimal'
-        ')'
-    )
-    connection = get_connection()
-    cursor = connection.cursor()
-    cursor.execute(statement)
+    return False
 
 
 def insert(data):
@@ -53,21 +48,32 @@ def insert(data):
     cursor = connection.cursor()
     for d in data:
         attributes = d['attributes']
-        title = attributes['titles']['en']
+        titles = attributes['titles']
         start_date = attributes['startDate']
         end_date = attributes['endDate']
         episodes = attributes['episodeCount']
         rating = attributes['averageRating']
+        title = None
+        if 'en' in titles:
+            title = titles['en']
+        elif 'en-jp' in titles:
+            title = titles['en-jp']
+        if title is None:
+            continue
         statement = (f'insert into anime(title, startDate, endDate, episodes, rating) '
-                     f'values("{title}", {start_date}, {end_date}, {episodes}, {rating})')
-        cursor.execute(statement)
+                     f'values(\'{title}\', to_date(%s, %s), to_date(%s, %s), {episodes}, {rating});')
+        cursor.execute(statement, (start_date, DATE_FORMAT, end_date, DATE_FORMAT))
+    connection.commit()
+    connection.close()
 
 
-def get_anime():
+def get_anime(max_pages=sys.maxsize):
     data = []
     url = f'{API_URL}/anime'
-    response = requests.get(url)
-    while response is not None:
+    is_done = False
+    page = 0
+    while not is_done:
+        response = requests.get(url)
         if response.status_code != 200:
             print(f'Error: Status code: {response.status_code}.')
             exit(1)
@@ -76,14 +82,22 @@ def get_anime():
             exit(1)
         for value in response.json()['data']:
             data.append(value)
-        if 'links' in response.json():
+        if 'links' in response.json() and 'next' in response.json()['links']:
             links = response.json()['links']
-            if 'next' in links:
-                url = links['next']
-                response = requests.get(url)
+            url = links['next']
+        else:
+            is_done = True
+        page += 1
+        if page == max_pages:
+            is_done = True
     return data
 
 
-wait_for_database()
-create_tables()
-insert(get_anime())
+print('Connecting to database...')
+if not connect_to_database(DATABASE_CONFIG['host'], 5, 5):
+    print('Error connecting to database.')
+    exit(1)
+print('Database connection established.')
+print('Extracting data...')
+insert(get_anime(1))
+print('Data extracted.')
