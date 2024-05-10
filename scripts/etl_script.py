@@ -1,30 +1,47 @@
 import psycopg2
 import requests
+import subprocess
+import time
 
 API_URL = 'https://kitsu.io/api/edge'
 
 
 def get_connection():
     connection = psycopg2.connect(
-        host='etl_anime_database',
+        host='database',
         port='5432',
         dbname='database',
         user='user',
         password='password'
     )
-
     return connection
 
 
-def create_table():
+def wait_for_database():
+    tries = 0
+    max_retries = 5
+    sleep_time = 5
+    while tries < max_retries:
+        try:
+            result = subprocess.run(['pg_isready', '-h', 'database'])
+            if result.returncode == 0:
+                return
+        except Exception as e:
+            print(f'Error: {e}')
+        tries += 1
+        time.sleep(sleep_time)
+
+
+def create_tables():
     statement = (
         'create table anime('
-        'id serial primary key,'
-        'title varchar(255),'
-        'startDate date,'
-        'endDate date,'
-        'episodes integer'
-        'rating decimal)'
+        'id serial primary key, '
+        'title varchar(255), '
+        'startDate date, '
+        'endDate date, '
+        'episodes integer, '
+        'rating decimal'
+        ')'
     )
     connection = get_connection()
     cursor = connection.cursor()
@@ -48,33 +65,25 @@ def insert(data):
 
 def get_anime():
     data = []
-
     url = f'{API_URL}/anime'
     response = requests.get(url)
-
-    num_gets = 0  # for testing
-
-    while response is not None and num_gets < 2:
+    while response is not None:
         if response.status_code != 200:
             print(f'Error: Status code: {response.status_code}.')
             exit(1)
         elif 'data' not in response.json():
             print('Error: There is no data in the response.')
             exit(1)
-
         for value in response.json()['data']:
             data.append(value)
-
         if 'links' in response.json():
             links = response.json()['links']
             if 'next' in links:
                 url = links['next']
                 response = requests.get(url)
-
-        num_gets += 1
-
     return data
 
 
-create_table()
+wait_for_database()
+create_tables()
 insert(get_anime())
