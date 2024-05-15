@@ -7,7 +7,7 @@ import time
 API_URL = 'https://kitsu.io/api/edge'
 DATE_FORMAT = '%Y-%m-%d'
 DATABASE_CONFIG = {
-    'host': 'database',
+    'host': 'database_service',
     'port': '5432',
     'dbname': 'database',
     'user': 'user',
@@ -108,7 +108,7 @@ print('Checking data...')
 if is_database_empty():
     print('Database is empty.')
     print('Downloading data...')
-    insert(get_anime(5))
+    insert(get_anime())
     print('Download complete.')
 else:
     print('Database has data.')

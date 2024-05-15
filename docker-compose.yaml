@@ -1,5 +1,5 @@
 services:
-  database:
+  database_service:
     image: postgres:latest
     environment:
       POSTGRES_DB: database
