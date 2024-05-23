@@ -8,5 +8,5 @@ services:
     volumes:
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  etl_script:
+  etl_script_service:
     build: .
