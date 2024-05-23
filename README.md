@@ -1,11 +1,17 @@
 # etl-anime
 This is an ETL pipeline for anime.
 
+## Containerization
+Docker
+
+## Data
+https://kitsu.docs.apiary.io
+
 ## Extract
-Extraction is done through API calls to https://kitsu.docs.apiary.io.
+pg_dump
 
 ## Transform
 WIP
 
 ## Load
-WIP
+psql

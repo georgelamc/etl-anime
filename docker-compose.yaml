@@ -1,12 +1,29 @@
 services:
-  database_service:
-    image: postgres:latest
+  source_database_service:
+    image: postgres:15.6
     environment:
       POSTGRES_DB: database
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
     volumes:
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - database_network
+
+  destination_database_service:
+    image: postgres:15.6
+    environment:
+      POSTGRES_DB: database
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    networks:
+      - database_network
 
   etl_script_service:
-    build: .
+    build: ./scripts
+    networks:
+      - database_network
+
+networks:
+  database_network:
+    driver: bridge
