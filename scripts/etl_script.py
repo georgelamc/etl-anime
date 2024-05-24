@@ -22,6 +22,8 @@ DESTINATION_DATABASE_CONFIG = {
 }
 
 
+# ----- DATABASE -----
+
 def get_source_connection():
     connection = psycopg2.connect(
         host=SOURCE_DATABASE_CONFIG['host'],
@@ -50,7 +52,7 @@ def connect_to_database(database, max_retries, sleep_time):
             if result.returncode == 0:
                 return True
         except subprocess.CalledProcessError as e:
-            print(f'Error: {e.stderr}')
+            print_error(e.stderr)
             print('Trying again...')
         tries += 1
         time.sleep(sleep_time)
@@ -65,12 +67,14 @@ def is_database_empty():
     return cursor.fetchone()[0] == 0
 
 
-def insert(data):
+def insert_anime(data):
     connection = get_source_connection()
     cursor = connection.cursor()
     for d in data:
         attributes = d['attributes']
         titles = attributes['titles']
+        subtype = attributes['subtype']
+        status = attributes['status']
         start_date = attributes['startDate']
         end_date = attributes['endDate']
         episodes = -1 if attributes['episodeCount'] is None else attributes['episodeCount']
@@ -82,38 +86,14 @@ def insert(data):
             title = titles['en-jp']
         if title is None:
             continue
-        statement = (f'insert into anime(title, startDate, endDate, episodes, rating) '
-                     f'values(%s, to_date(%s, %s), to_date(%s, %s), {episodes}, {rating});')
-        cursor.execute(statement, (title, start_date, DATE_FORMAT, end_date, DATE_FORMAT))
+        statement = (f'insert into anime(title, type, status, startDate, endDate, episodes, rating) '
+                     f'values(%s, %s, %s, to_date(%s, %s), to_date(%s, %s), {episodes}, {rating});')
+        cursor.execute(statement, (title, subtype, status, start_date, DATE_FORMAT, end_date, DATE_FORMAT))
     connection.commit()
     connection.close()
 
 
-def get_anime(max_pages=sys.maxsize):
-    data = []
-    url = f'{API_URL}/anime'
-    is_done = False
-    page = 0
-    while not is_done:
-        response = requests.get(url)
-        if response.status_code != 200:
-            print(f'Error: Status code: {response.status_code}.')
-            exit(1)
-        elif 'data' not in response.json():
-            print('Error: There is no data in the response.')
-            exit(1)
-        for value in response.json()['data']:
-            data.append(value)
-        if 'links' in response.json() and 'next' in response.json()['links']:
-            links = response.json()['links']
-            url = links['next']
-        else:
-            is_done = True
-        page += 1
-        if page == max_pages:
-            is_done = True
-    return data
-
+# ----- PSQL UTILITIES -----
 
 def extract():
     dump_command = [
@@ -128,7 +108,7 @@ def extract():
         subprocess_env = dict(PGPASSWORD=SOURCE_DATABASE_CONFIG['password'])
         subprocess.run(dump_command, capture_output=True, check=True, env=subprocess_env, text=True)
     except subprocess.CalledProcessError as e:
-        print(f'Error: {e.stderr}')
+        print_error(e.stderr)
         exit(1)
 
 
@@ -145,9 +125,49 @@ def load():
         subprocess_env = dict(PGPASSWORD=SOURCE_DATABASE_CONFIG['password'])
         subprocess.run(load_command, capture_output=True, check=True, env=subprocess_env, text=True)
     except subprocess.CalledProcessError as e:
-        print(f'Error: {e.stderr}')
+        print_error(e.stderr)
         exit(1)
 
+
+# ----- API -----
+
+def get_anime(max_pages=sys.maxsize):
+    data = []
+    url = f'{API_URL}/anime'
+    is_done = False
+    page = 0
+    while not is_done:
+        response = requests.get(url)
+        if response.status_code != 200:
+            print_status_code(response.status_code)
+            exit(1)
+        elif 'data' not in response.json():
+            print_error('There is no data in the response.')
+            exit(1)
+        for value in response.json()['data']:
+            data.append(value)
+        if 'links' in response.json() and 'next' in response.json()['links']:
+            links = response.json()['links']
+            url = links['next']
+        else:
+            is_done = True
+        page += 1
+        if page == max_pages:
+            is_done = True
+    return data
+
+
+# ----- UTILITIES -----
+
+def print_error(error):
+    print(f'Error: {error}')
+
+
+def print_status_code(status_code):
+    print(f'Error: Status code: {status_code}.')
+
+
+# ----- SCRIPT -----
 
 print('Connecting to database...')
 if not connect_to_database(SOURCE_DATABASE_CONFIG['host'], 5, 5):
@@ -161,7 +181,7 @@ print('Checking data...')
 if is_database_empty():
     print('Database is empty.')
     print('Downloading data...')
-    insert(get_anime(1))
+    insert_anime(get_anime())
     print('Download complete.')
 else:
     print('Database has data.')

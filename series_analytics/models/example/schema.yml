@@ -1,0 +1,30 @@
+
+version: 2
+
+models:
+  - name: anime
+    description: "This table contains anime series"
+    columns:
+      - name: id
+        description: "The primary key for this table"
+        tests:
+          - unique
+          - not_null
+      - name: title
+        description: "The name of the series"
+        tests:
+          - not_null
+      - name: startDate
+        description: "The date the series began"
+        tests:
+          - not_null
+      - name: endDate
+        description: "The date the series ended"
+      - name: episodes
+        description: "The number of episodes"
+        tests:
+          - not_null
+      - name: rating
+        description: "The series' rating"
+        tests:
+          - not_null

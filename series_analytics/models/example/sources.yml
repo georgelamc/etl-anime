@@ -1,0 +1,11 @@
+
+version: 2
+
+sources:
+  - name: anime
+    description: "Data from anime table"
+    database: database
+    schema: public
+    tables:
+      - name: anime
+        description: "List of anime series"
