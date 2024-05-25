@@ -27,19 +27,19 @@ services:
     networks:
       - etl_network
 
-#  dbt_service:
-#    image: ghcr.io/dbt-labs/dbt-postgres:15.6
-#    command: [ "run" ]
-#    depends_on:
-#      - etl_script_service
-#    environment:
-#      DBT_PROFILE: default
-#      DBT_TARGET: dev
-#    networks:
-#      - etl_network
-#    volumes:
-#      - ./series_analytics
-#      - ~/.dbt:/root
+  dbt_service:
+    image: ghcr.io/dbt-labs/dbt-postgres:1.4.7
+    command: [ "run", "--profiles-dir", "/root", "--project-dir", "/dbt" ]
+    depends_on:
+      - etl_script_service
+    environment:
+      DBT_PROFILE: default
+      DBT_TARGET: dev
+    networks:
+      - etl_network
+    volumes:
+      - ./series_analytics:/dbt
+      - ~/.dbt:/root
 
 networks:
   etl_network:

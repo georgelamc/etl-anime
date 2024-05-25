@@ -2,10 +2,10 @@
 version: 2
 
 sources:
-  - name: anime
+  - name: database
     description: "Data from anime table"
     database: database
     schema: public
     tables:
       - name: anime
-        description: "List of anime series"
+        description: "A list of anime series"
