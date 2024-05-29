@@ -28,12 +28,12 @@ services:
       - etl_network
 
   dbt_service:
-    image: ghcr.io/dbt-labs/dbt-postgres:1.4.7
+    image: ghcr.io/dbt-labs/dbt-postgres:latest
     command: [ "run", "--profiles-dir", "/root", "--project-dir", "/dbt" ]
     depends_on:
       - etl_script_service
     environment:
-      DBT_PROFILE: default
+      DBT_PROFILE: series_analytics
       DBT_TARGET: dev
     networks:
       - etl_network
